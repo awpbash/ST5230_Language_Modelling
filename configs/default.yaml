@@ -1,0 +1,75 @@
+# Hyperparameters
+
+seed: 42
+
+data:
+  dataset: "ag_news"
+  max_vocab_size: 20000
+  special_tokens: ["<pad>", "<unk>", "<sos>", "<eos>"]
+  max_seq_len: 128
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+
+model:
+  embed_dim: 100
+  hidden_dim: 100
+  num_layers: 2
+  dropout: 0.1
+
+transformer:
+  n_heads: 4
+  d_ff: 400
+
+ngram:
+  orders: [2, 3]          # bigram and trigram
+  smoothing_k: 1.0        # Laplace smoothing
+
+training:
+  batch_size: 64
+  max_epochs: 20
+  early_stopping_patience: 3
+  learning_rate: 0.001
+  gradient_clip: 5.0
+  num_workers: 0
+
+generation:
+  max_len: 50
+  temperature: 1.0
+  prompts:
+    - "the president of"
+    - "scientists have discovered"
+    - "the stock market"
+    - "the team won"
+
+embedding_ablation:
+  variants:
+    - "scratch"
+    - "w2v_frozen"
+    - "glove_pretrained_frozen"
+  models:
+    - "rnn"
+    - "lstm"
+    - "transformer"
+  w2v_dim: 100
+  w2v_window: 5
+  w2v_min_count: 5
+  w2v_epochs: 10
+  pretrained_glove: "glove-wiki-gigaword-100"
+
+downstream:
+  model_source: "transformer"
+  pool_method: "mean"
+  classifier: "linear"
+  mlp_hidden: 128
+  freeze_lm: true
+  finetune_lr: 0.0001
+  head_lr: 0.001
+  epochs: 10
+  batch_size: 64
+
+paths:
+  output_dir: "outputs"
+  model_dir: "outputs/models"
+  plot_dir: "outputs/plots"
+  log_dir: "outputs/logs"

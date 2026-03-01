@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints (too large for git)
+outputs/models/*.pt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Lecture sample code (not part of submission)
+sample_code/
+
+# Duplicate notebook outputs (canonical location is outputs/)
+notebooks/outputs/

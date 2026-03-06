@@ -2,8 +2,6 @@
 
 Systematic comparison of n-gram, RNN, LSTM, and Transformer language models trained on the [AG News](https://huggingface.co/datasets/ag_news) dataset (~96K news articles, ~4.7M tokens). Includes embedding ablation studies and downstream topic classification.
 
-Built for **NUS ST5230** (Applied NLP) Assignment 1.
-
 ## Overview
 
 | | Part I: LM Comparison | Part II: Embedding Ablation | Part III: Downstream Task |
@@ -68,30 +66,30 @@ Domain-matched W2V wins for recurrent models; the Transformer prefers learning e
 ```
 .
 ├── configs/
-│   └── default.yaml                 # All hyperparameters (single source of truth)
+│   └── default.yaml                 # hyperparams and settings
 ├── src/
 │   ├── tokenizer.py                 # Word-level tokenizer + vocabulary
-│   ├── data.py                      # AG News loading, splits, DataLoaders
+│   ├── data.py                      # load AG News
 │   ├── ngram.py                     # Bigram & trigram with Laplace smoothing
-│   ├── rnn_lm.py                    # Vanilla RNN language model
-│   ├── lstm_lm.py                   # LSTM language model
-│   ├── transformer_lm.py            # Decoder-only Transformer (GPT-style)
+│   ├── rnn_lm.py                    
+│   ├── lstm_lm.py                   
+│   ├── transformer_lm.py            # Decoder-only Transformer
 │   ├── embeddings.py                # Embedding variants (scratch, W2V, GloVe)
 │   ├── downstream.py                # Classification heads + BoW baseline
-│   ├── train.py                     # Shared training loop
-│   ├── sanity.py                    # Pre-training sanity checks
-│   └── utils.py                     # Perplexity, generation, plotting helpers
+│   ├── train.py                     
+│   ├── sanity.py                    
+│   └── utils.py                     
 ├── notebooks/
-│   ├── part1_lm_comparison.ipynb    # Train & compare all LMs
-│   ├── part2_embedding_ablation.ipynb  # 3x3 embedding ablation grid
-│   └── part3_downstream.ipynb       # Downstream classification
+│   ├── part1_lm_comparison.ipynb    
+│   ├── part2_embedding_ablation.ipynb  
+│   └── part3_downstream.ipynb       # Classification
 ├── report/
-│   └── report.pdf                   # Final report (6 pages)
+│   └── report.pdf                   
 ├── outputs/
-│   ├── models/                      # Saved checkpoints (.pt)
-│   └── plots/                       # Generated figures
+│   ├── models/                      # Saved checkpoints (.pt files)
+│   └── plots/                      
 ├── requirements.txt
-└── run_all.bat                      # Run all notebooks end-to-end
+└── run_all.bat                      # Run all notebooks (windows lol)
 ```
 
 ## Design Decisions

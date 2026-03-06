@@ -18,11 +18,6 @@ outputs/models/*.pt
 .DS_Store
 Thumbs.db
 
-# Claude Code
 .claude/
-
-# Lecture sample code (not part of submission)
 sample_code/
-
-# Duplicate notebook outputs (canonical location is outputs/)
 notebooks/outputs/

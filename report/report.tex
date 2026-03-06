@@ -1,5 +1,5 @@
 \documentclass[11pt,a4paper]{article}
-\usepackage[margin=2.2cm]{geometry}
+\usepackage[margin=2.0cm]{geometry}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{caption}
@@ -12,26 +12,31 @@
 
 \setlength{\parskip}{0.4em}
 \setlength{\parindent}{0em}
+\captionsetup{font=small,skip=4pt}
 
-\title{\textbf{ST5230 Assignment 1}\\Language Modeling, Embeddings, and Downstream Classification}
-\author{Ng Jun Wei (A0252142U)\\National University of Singapore}
+\title{\textbf{ST5230 Assignment 1}}
+\author{Ng Jun Wei (A0252142U)\\National University of Singapore\\\url{https://github.com/awpbash/ST5230_Language_Modelling}}
 \date{}
 
 \begin{document}
 \maketitle
 \vspace{-2em}
 
+% ============================================================
 \section{Overview}
+% ============================================================
 
-This report compares four families of language models (n-gram, RNN, LSTM, and Transformer) trained on the same English news corpus under controlled settings. It then investigates how the choice of word embedding affects each neural model, and finally evaluates whether better language models produce better features for a downstream classification task.
+This report compares four families of language models (n-gram, RNN, LSTM, Transformer) trained on the AG News dataset, a balanced 4-class topic classification corpus (World, Sports, Business, Sci/Tech) with 96,000 training articles ($\sim$4.7M tokens) and 7,600 test articles. Tokenization is whitespace-based with lowercasing, retaining the top 20,000 tokens. Sequences are truncated to 128 tokens. The training data is split 80/10/10 for language modeling; the original HuggingFace test set (1,900 per class) is used for downstream classification.
 
-All experiments use the \textbf{AG News} dataset, a balanced 4-class topic classification corpus (World, Sports, Business, Sci/Tech) with 96,000 training documents ($\sim$4.7M tokens) and 7,600 test documents. Tokenization is whitespace-based with lowercasing and punctuation separation, retaining the top 20,000 tokens as vocabulary. Sequences are truncated to 128 tokens. For language modeling, the training data is split 80/10/10 into train/val/test; for downstream classification, the original HuggingFace test split (1,900 per class) is used.
+To ensure fair comparison, all neural models share the same dimensionality (embed\_dim = hidden\_dim = 100), depth (2 layers), dropout (0.1), optimizer (Adam, lr = 0.001), gradient clipping (5.0), batch size (64), and are trained for 20 epochs. Parameter counts range from 4.06M to 4.28M, so differences in performance reflect architecture rather than capacity. The shared embedding (20K $\times$ 100 = 2M) and output projection account for most parameters; differences come only from model cores.
 
-To ensure fair comparison, all three neural language models share the same dimensionality (\texttt{embed\_dim} = \texttt{hidden\_dim} = 100), depth (2 layers), regularization (dropout = 0.1), and training regime (Adam, lr = 0.001, gradient clipping at 5.0, batch size 64, 20 epochs). This keeps total parameter counts within 4.06M to 4.28M, so performance differences reflect architectural choices rather than model capacity.
+All experiments use seed 42 with hyperparameters centralized in a single YAML config, and were run on one NVIDIA RTX 4060 GPU. Word2Vec embeddings (Part II) were trained only on the training split, and zero overlap between splits was verified. Before full training, we confirmed that all models can overfit a single batch ($>$50\% loss drop), all parameters receive gradients, and the Transformer's causal mask prevents future token leakage.
 
+% ============================================================
 \section{Part I: Language Model Training and Comparison}
+% ============================================================
 
-Five language models are trained on the same data: a bigram and trigram (count-based with Laplace smoothing, $k{=}1$), a 2-layer vanilla RNN with tanh activation, a 2-layer LSTM, and a 2-layer decoder-only Transformer (GPT-style, 4 attention heads, $d_{ff}{=}400$, learned positional embeddings with causal masking).
+To find out the performance, training time and inference time of different language model architectures, we train five language models on the same data: a bigram and trigram with Laplace smoothing ($k{=}1$), a 2-layer vanilla RNN (tanh), a 2-layer LSTM, and a 2-layer decoder-only Transformer (GPT-style, 4 heads, $d_{ff}{=}400$, learned positional embeddings, causal mask). All neural models are autoregressive and trained with cross-entropy on next-token prediction.
 
 \begin{table}[H]
 \centering\small
@@ -43,64 +48,73 @@ Bigram & Count-based, Laplace smoothing & N/A \\
 Trigram & Count-based, Laplace smoothing & N/A \\
 RNN & 2-layer vanilla RNN, tanh & 4,060,400 \\
 LSTM & 2-layer LSTM & 4,181,600 \\
-Transformer & 2-layer decoder-only, 4 heads, $d_{ff}{=}400$ & 4,275,600 \\
+Transformer & 2-layer decoder-only, 4 heads & 4,275,600 \\
 \bottomrule
 \end{tabular}
 \caption{Model architectures and parameter counts.}
 \end{table}
 
-\subsection{Results}
-
 \begin{table}[H]
 \centering\small
 \begin{tabular}{lrrrr}
 \toprule
-\textbf{Model} & \textbf{Val PPL} & \textbf{Test PPL} & \textbf{Train Time} & \textbf{Inference (ms/batch)} \\
+\textbf{Model} & \textbf{Val PPL} & \textbf{Test PPL} & \textbf{Train Time} & \textbf{Inf.\ (ms/batch)} \\
 \midrule
 Bigram & 860.44 & 849.76 & 5.3s & 4.73 \\
 Trigram & 3791.59 & 3735.70 & 10.0s & 6.03 \\
-RNN & 97.46 & 96.26 & 1878.5s ($\sim$94s/ep) & 0.90 \\
-LSTM & 78.75 & 77.82 & 1997.8s ($\sim$100s/ep) & 0.94 \\
-Transformer & \textbf{54.07} & \textbf{53.59} & 2101.9s ($\sim$105s/ep) & 2.26 \\
+RNN & 97.46 & 96.26 & 1878.5s & 0.90 \\
+LSTM & 78.75 & 77.82 & 1997.8s & 0.94 \\
+Transformer & \textbf{54.07} & \textbf{53.59} & 2101.9s & 2.26 \\
 \bottomrule
 \end{tabular}
-\caption{Perplexity, training time, and inference speed across all language models.}
+\caption{Perplexity, training time, and inference speed.}
 \end{table}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.62\textwidth]{../outputs/plots/part1_val_perplexity.png}
-\caption{Validation perplexity by epoch. The Transformer converges fastest and reaches the lowest perplexity. All three neural models continue improving at epoch 20, with no sign of overfitting (Figure~2).}
-\end{figure}
+\subsection*{Analysis}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.92\textwidth]{../outputs/plots/part1_overfitting.png}
-\caption{Train vs validation loss. The train-val gap remains small throughout, confirming that 20 epochs is appropriate for this dataset size.}
-\end{figure}
+The Transformer achieves the lowest perplexity by a large margin, followed by LSTM then RNN (Table~2, Figure~\ref{fig:val_ppl}). This ordering makes sense: the RNN compresses all context into a fixed-size hidden state, which limits how far back it can ``remember.'' The LSTM improves on this with gating that lets it carry information across longer spans. The Transformer performs best since self-attention lets every token look at every previous token directly, so there is no sequential bottleneck at all.
 
-\subsection{Analysis}
+Interestingly, the trigram does \emph{worse} than the bigram. This happens because Laplace smoothing spreads probability uniformly over unseen events, and the trigram has a much larger context space ($V^2$ possible bigram histories). Most trigram contexts are never seen in training, so the model ends up assigning near-uniform probabilities most of the time.
 
-The n-gram models serve as a useful baseline but have far higher perplexity. The trigram (PPL 3736) performs \emph{worse} than the bigram (PPL 850) because Laplace smoothing distributes mass uniformly across unseen events, and with 1.0M distinct trigram histories (vs 60K bigram), sparsity is far more severe.
+Training time increases modestly from RNN to Transformer (Table~2). The Transformer is also the slowest at inference due to $O(n^2)$ attention, though at this scale the difference is small. The train-val loss gap stays small for all models across 20 epochs (Figure~\ref{fig:overfit}), so none of them are significantly overfitting.
 
-Among neural models, the hierarchy is clear: Transformer (PPL 53.6) $>$ LSTM (PPL 77.8) $>$ RNN (PPL 96.3). The LSTM's 19\% improvement over the RNN comes from its gating mechanism, which provides a gradient highway through the cell state. The Transformer extends this further: self-attention creates direct connections between any two positions, avoiding the sequential bottleneck entirely. Its PPL is 31\% lower than the LSTM's.
+For text generation, we sample from each model using the prompt ``the president of'' (Table~\ref{tab:gen}). The bigram immediately loses coherence after a couple of words since it only conditions on the previous token. The trigram produces longer fragments but still drifts rapidly. The RNN manages some topical relevance but mixes unrelated phrases. The LSTM holds slightly better but still wanders. The Transformer produces the most coherent output, generating a plausible news-like sentence about the Iraqi president that stays on topic throughout.
 
-This quality comes at a cost: the Transformer is the slowest model in training (105s/epoch vs 100s for LSTM, 94s for RNN) and inference (2.26~ms/batch vs $\sim$0.9~ms), reflecting $O(n^2)$ attention overhead at this small scale.
-
-In generated text, n-gram samples lose topic consistency within a few words. The RNN drifts after $\sim$15 tokens, the LSTM holds slightly longer, and the Transformer produces the most topically coherent passages.
-
+\begin{table}[H]
+\centering\small
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{lp{11cm}}
+\toprule
+\textbf{Model} & \textbf{Generated text (prompt: ``the president of'')} \\
+\midrule
+Bigram & the president of european union has been hard drives measuring 7. \\
+\hline
+Trigram & the president of haiti \#39; technology stocks, after attackers blew up an independent inquiry into school siege remain in office before 2008 \ldots \\
+\hline
+RNN & the president of brazil \#39; s rift after being contempt called stalking between the virginia empty runs thursday, killing 11 militants \ldots \\
+\hline
+LSTM & the president of back 3 - man - vs losing market chelsea, alex, who pulled the fight to a crucial career \ldots \\
+\hline
+Transformer & the president of iraqi aid reportedly diverted new iraqi president ghazi al - yawar arrived at a memorial center at a donors centre to former iraqi prime minister ayad allawi. \\
+\bottomrule
+\end{tabular}
+\renewcommand{\arraystretch}{1.0}
+\caption{Generated text samples (temperature=1.0, max 128 tokens, truncated for space).}
+\label{tab:gen}
+\end{table}
+% ============================================================
 \section{Part II: Embedding Variants and Ablation}
+% ============================================================
 
-To understand how the embedding layer affects language modeling, the default trainable embeddings are replaced with two frozen alternatives and each neural model is retrained. This gives a $3 \times 3$ grid of 9 experiments:
+In this section, we explore the effect of different embeddings by replacing the default trainable embeddings with two frozen alternatives and retrain each neural model, giving a $3 \times 3$ grid of 9 experiments:
 
 \begin{itemize}[nosep]
-\item \textbf{Scratch}: standard trainable embeddings (nn.Embedding, 100-dim), randomly initialized.
-\item \textbf{W2V frozen}: Word2Vec (Skip-gram, dim=100, window=5) trained on the AG News \emph{training set only} via Gensim, then frozen. Coverage: 99.98\% (19,996/20,000).
-\item \textbf{GloVe pretrained frozen}: \texttt{glove-wiki-gigaword-100}, a public embedding from Wikipedia + Gigaword. Coverage: 98.8\% (19,768/20,000).
+\item \textbf{Scratch}: trainable 100-dim embeddings, randomly initialized.
+\item \textbf{W2V frozen}: Word2Vec (Skip-gram, dim=100, window=5) self-trained on the AG News training set only, then frozen.
+\item \textbf{GloVe frozen}: \texttt{glove-wiki-gigaword-100}, pretrained on Wikipedia + Gigaword from gensim package.
 \end{itemize}
-Freezing the embedding removes $\sim$2M parameters from gradient updates, so frozen variants have roughly half the trainable parameters of scratch.
 
-\subsection{Results}
+Freezing removes $\sim$2M embedding parameters from gradient updates, so frozen models have roughly half the trainable parameters.
 
 \begin{table}[H]
 \centering\small
@@ -116,25 +130,11 @@ Transformer & 4.28M / 2.28M & \textbf{53.83} & 57.65 & 60.76 \\
 \caption{Test perplexity by embedding variant. Bold = best per model.}
 \end{table}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{../outputs/plots/part2_convergence.png}
-\caption{Validation perplexity over 20 epochs for each model-embedding combination.}
-\end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{../outputs/plots/part2_cross_model.png}
-\caption{Holding the embedding constant, the Transformer consistently outperforms LSTM and RNN.}
-\end{figure}
-
-\subsection{Convergence Speed}
-
 \begin{table}[H]
 \centering\small
 \begin{tabular}{lccc}
 \toprule
-\textbf{Run} & \textbf{Epoch-1 PPL} & \textbf{Best PPL} & \textbf{Gap} \\
+\textbf{Run} & \textbf{Epoch-1 PPL} & \textbf{Best Val PPL} & \textbf{Gap} \\
 \midrule
 RNN scratch & 252.80 & 97.46 & 155.34 \\
 RNN W2V & 242.86 & 94.18 & 148.68 \\
@@ -147,26 +147,26 @@ TF W2V & 164.01 & 58.37 & 105.65 \\
 TF GloVe & 157.18 & 61.39 & 95.79 \\
 \bottomrule
 \end{tabular}
-\caption{Epoch-1 perplexity as a convergence speed signal.}
+\caption{Epoch-1 perplexity and total improvement (convergence speed).}
 \end{table}
 
-\subsection{Analysis}
+\subsection*{Analysis}
 
-\textbf{W2V dominates for recurrent models.} W2V frozen achieves the best test perplexity for both RNN (93.1 vs 96.3 scratch) and LSTM (75.1 vs 78.0). W2V was self-trained on AG News, so it encodes domain-specific co-occurrence patterns with near-perfect coverage. GloVe, despite a much larger training corpus (Wikipedia + Gigaword), encodes general-purpose semantics that are less aligned with news text.
+For RNN and LSTM, Word2Vec (W2V) gives the best perplexity (Table~4). This makes sense because W2V was trained on the same news corpus, so it captures domain-specific patterns that the model can exploit immediately. GloVe, pretrained on a much larger but general-purpose corpus, is less aligned with news text and also has slightly lower vocabulary coverage (1.2\% OOV tokens get zero vectors). Recurrent models process tokens through a fixed-size hidden state, so they benefit more from a good embedding initialization since they have limited capacity to ``fix'' bad input representations on the fly.
 
-\textbf{Scratch wins for Transformer.} Self-attention reshapes representations at every layer, effectively learning task-optimal embeddings during training. With 2M additional trainable embedding parameters, the scratch Transformer has more capacity to specialize. Recurrent models, processing tokens through a fixed-size hidden state, benefit more from good initialization.
+The Transformer on the other hand performed best with scratch embeddings (Table~4). This might be due to the self-attention mechanism which allows the Transformer to effectively learn its own optimal embeddings during training. Frozen embeddings actually hurt because they prevent the model from co-adapting the input space with the attention layers.
 
-\textbf{LSTM convergence anomaly.} LSTM scratch (epoch-1 PPL 358) starts \emph{better} than frozen variants (W2V 464, GloVe 457), the opposite of RNN and Transformer. LSTM gate initialization is calibrated for random-scale inputs; pretrained embeddings with a different scale cause suboptimal initial gate behavior. Despite the slow start, W2V LSTM still converges to the best final perplexity.
+An interesting anomaly shows up in convergence speed (Table~5). For RNN and Transformer, pretrained embeddings give lower epoch-1 perplexity as expected, since they start from a better initialization. But for LSTM, scratch actually starts \emph{lower} than the frozen variants. This might happen because LSTM gates are initialized assuming random-scale inputs; pretrained embeddings have a different magnitude distribution that causes the gates to saturate early on. Despite this slow start, W2V LSTM still converges to the best final perplexity (Figure~\ref{fig:convergence}).
 
-\textbf{GloVe is worst everywhere.} Domain mismatch (general vs.\ news) and lower coverage (98.8\% vs 99.98\%) outweigh the benefit of larger pretraining data.
+GloVe is the worst embedding for every model suggesting that domain mismatch matters more than pretraining corpus size.
 
+% ============================================================
 \section{Part III: Downstream Task with Learned Representations}
+% ============================================================
 
-Having trained language models of varying quality, the central question is: do better language models produce better features for classification? Frozen representations are extracted from each trained LM and used for AG News topic classification.
+The main question here is whether better language models produce better features for classification. We extract frozen representations from each LM by running a forward pass and mean-pooling the final-layer hidden states across non-padding positions, producing one 100-dim vector per input. These features are then used for AG News 4-class topic classification.
 
-\subsection{Feature Extraction and Methods}
-
-For each LM, a forward pass is run over every document to extract hidden states at the final layer, \textbf{mean-pooled} across non-padding positions to produce a 100-dimensional feature vector per document.
+We compare four approaches: (1) a bag-of-words baseline (CountVectorizer + logistic regression), (2) a frozen linear probe on LM features, (3) a frozen MLP probe (100$\rightarrow$128$\rightarrow$4, ReLU), and (4) end-to-end fine-tuning of the Transformer with a linear head using differential learning rates (backbone: 1e-4, head: 1e-3). All classifiers train for 10 epochs with Adam.
 
 \begin{table}[H]
 \centering\small
@@ -176,16 +176,12 @@ For each LM, a forward pass is run over every document to extract hidden states 
 \midrule
 BoW + LogReg & CountVectorizer + logistic regression (sklearn) \\
 Frozen LM + Linear & Frozen features $\rightarrow$ linear layer (100$\rightarrow$4) \\
-Frozen LM + MLP & Frozen features $\rightarrow$ 1-hidden-layer MLP (100$\rightarrow$128$\rightarrow$4, ReLU) \\
-Fine-tuned TF + Linear & End-to-end fine-tuning, differential LR (LM: 1e-4, head: 1e-3) \\
+Frozen LM + MLP & Frozen features $\rightarrow$ MLP (100$\rightarrow$128$\rightarrow$4, ReLU) \\
+Fine-tuned TF + Linear & End-to-end fine-tuning, differential LR \\
 \bottomrule
 \end{tabular}
 \caption{Downstream classification methods.}
 \end{table}
-
-Frozen probes are applied to all three backbones; only the Transformer is fine-tuned as the strongest backbone. All classifiers train for 10 epochs with Adam.
-
-\subsection{Results}
 
 \begin{table}[H]
 \centering\small
@@ -203,68 +199,82 @@ TF frozen + MLP & 0.906 & 0.906 & 0.915 & 0.963 & 0.869 & 0.876 \\
 \textbf{TF fine-tuned + Linear} & \textbf{0.931} & \textbf{0.931} & \textbf{0.939} & \textbf{0.978} & \textbf{0.901} & \textbf{0.904} \\
 \bottomrule
 \end{tabular}
-\caption{Downstream classification results. Per-class columns show F1 scores.}
+\caption{Downstream classification results. Per-class columns are F1 scores.}
 \end{table}
 
+\subsection*{Analysis}
+
+The most surprising result is that a simple BoW baseline beats every frozen LM with a linear head (Table~6). This is because topic classification largely depends on \emph{which words appear}, and BoW captures this lexical signal directly. LM features are optimized for next-token prediction, not class separability, so a linear classifier struggles to extract topic information from them.
+
+However, switching to an MLP head changes the picture. The Transformer + MLP is the only frozen setup that matches the BoW baseline, suggesting that Transformer features encode richer structure from self-attention that a nonlinear classifier can decode. Recurrent models benefit less from the MLP upgrade because their features, compressed through a sequential bottleneck, are already more ``linearly shaped.''
+
+Across all models, lower perplexity correlates with higher downstream accuracy (Figure~\ref{fig:ppl_acc}), confirming that better LMs do learn more useful representations. But the relationship is sublinear: the large PPL gap between LSTM and Transformer only translates to a modest accuracy gain with a linear probe. This suggests the extra patterns captured by stronger LMs are fine-grained and don't directly map onto coarse topic labels.
+
+Fine-tuning the Transformer gives the biggest jump, reaching 93.1\% accuracy (Table~6). Instead of using features shaped by ``predict the next word,'' fine-tuning reshapes the entire representation space toward the classification objective. Validation accuracy climbs steadily over 10 epochs with no overfitting (Figure~\ref{fig:finetune}).
+
+Looking at per-class results, Sports is the easiest class everywhere thanks to its distinctive vocabulary. Business is hardest because it shares terms with both World and Sci/Tech. Fine-tuning narrows this gap the most, as visible in the confusion matrix (Figure~\ref{fig:confusion}). The t-SNE plots (Figure~\ref{fig:tsne}) also confirm this visually: RNN features form overlapping blobs, LSTM features show moderate separation, and Transformer features have the clearest cluster boundaries.
+
+% ============================================================
+\newpage
+\appendix
+\section*{Appendix: Figures}
+\addcontentsline{toc}{section}{Appendix: Figures}
+% ============================================================
+
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../outputs/plots/part3_tsne.png}
-\caption{t-SNE of frozen LM features (3,000 test samples). Transformer features show the clearest cluster separation; RNN features are the most diffuse.}
+\includegraphics[width=0.6\textwidth]{plots/part1_val_perplexity.png}
+\caption{Validation perplexity over 20 epochs. Transformer converges fastest and reaches the lowest PPL.}
+\label{fig:val_ppl}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\begin{minipage}{0.48\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../outputs/plots/part3_ppl_vs_accuracy.png}
-\caption{Perplexity vs frozen linear probe accuracy. Better LMs produce better features, with diminishing returns.}
-\end{minipage}\hfill
-\begin{minipage}{0.48\textwidth}
-\centering
-\includegraphics[width=\textwidth]{../outputs/plots/part3_confusion_matrix.png}
-\caption{Confusion matrix for the fine-tuned Transformer (best model).}
-\end{minipage}
+\includegraphics[width=0.75\textwidth]{plots/part1_overfitting.png}
+\caption{Train vs validation loss. Small gap throughout indicates no significant overfitting.}
+\label{fig:overfit}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.82\textwidth]{../outputs/plots/part3_finetune_dynamics.png}
-\caption{Fine-tuning dynamics. Val accuracy rises from 90.1\% to 92.8\% over 10 epochs with no overfitting.}
+\includegraphics[width=0.75\textwidth]{plots/part2_convergence.png}
+\caption{Validation perplexity for all 9 model-embedding combinations (Part II).}
+\label{fig:convergence}
 \end{figure}
 
-\subsection{Analysis}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{plots/part2_cross_model.png}
+\caption{Same embedding, different models. Transformer wins regardless of embedding choice.}
+\label{fig:cross_model}
+\end{figure}
 
-\textbf{BoW outperforms all frozen linear probes.} A simple bag-of-words (90.2\%) beats every frozen LM + linear head, including the Transformer (88.0\%). Topic classification depends on \emph{which words appear}, and BoW captures this directly. Frozen LM features, shaped by next-token prediction, do not explicitly encode class-discriminative information.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{plots/part3_tsne.png}
+\caption{t-SNE of frozen LM features (3,000 test samples). Transformer features show the clearest clusters.}
+\label{fig:tsne}
+\end{figure}
 
-\textbf{Nonlinear heads unlock the Transformer.} MLP gains are uneven: RNN +1.7\%, LSTM +1.2\%, Transformer +2.6\%. The larger gain indicates Transformer features encode richer nonlinear structure from self-attention. TF frozen + MLP (90.6\%) is the only frozen config surpassing BoW.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{plots/part3_ppl_vs_accuracy.png}
+\caption{LM perplexity vs frozen linear probe accuracy. Lower PPL correlates with higher accuracy.}
+\label{fig:ppl_acc}
+\end{figure}
 
-\textbf{PPL correlates with feature quality, with diminishing returns.} RNN (PPL 96.3, Acc 84.0\%) $\rightarrow$ LSTM (PPL 77.8, Acc 87.1\%) $\rightarrow$ Transformer (PPL 53.6, Acc 88.0\%). The 31\% PPL drop LSTM$\rightarrow$TF yields only +0.9\% linear probe accuracy, as further perplexity gains capture patterns that do not directly help coarse topic classification.
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{plots/part3_confusion_matrix.png}
+\caption{Confusion matrix for fine-tuned Transformer. Business-Sci/Tech is the main confusion pair.}
+\label{fig:confusion}
+\end{figure}
 
-\textbf{Fine-tuning gives the largest gain.} The fine-tuned Transformer (93.1\%) gains +5.1\% over frozen + linear and +2.5\% over frozen + MLP. Fine-tuning reshapes representations from ``what word comes next'' to ``what topic is this.'' Val accuracy climbs from 90.3\% to 92.9\% over 10 epochs with no overfitting.
-
-\textbf{Per-class patterns.} Sports is easiest (F1 0.92--0.98); Business is hardest (F1 0.79--0.90). Fine-tuning helps weak classes most: Business F1 improves from 0.84 to 0.90 (+6\% absolute).
-
-\textbf{Connection to LM architecture.} More expressive architectures produce richer representations, but that richness is only accessible through nonlinear probes or fine-tuning. Recurrent models compress through a fixed-size hidden state, yielding more linearly separable features. The Transformer distributes information across a higher-dimensional attention-derived space that requires more downstream capacity to exploit, but achieves the best results when given that capacity.
-
-\section{Experimental Controls}
-
-\begin{itemize}[nosep]
-\item \textbf{Parameter fairness:} All neural LMs have 4.06--4.28M parameters. The shared embedding (20K $\times$ 100 = 2M) and output projection (100 $\times$ 20K = 2M) dominate; differences come only from model cores.
-\item \textbf{Same pipeline:} Same tokenizer, vocabulary, splits, and max sequence length (128).
-\item \textbf{No data leakage:} W2V trained only on the training split. Zero split overlap verified.
-\item \textbf{Sanity checks:} All models overfit one batch ($>$50\% loss drop); all parameters receive gradients; Transformer causal mask verified.
-\item \textbf{Hardware:} All experiments run on a single NVIDIA GeForce RTX 4060 GPU.
-\item \textbf{Reproducibility:} Seed 42. Hyperparameters centralized in \texttt{configs/default.yaml}.
-\end{itemize}
-
-\section{Limitations}
-
-\begin{itemize}[nosep]
-\item \textbf{Tokenization:} Only whitespace splitting with lowercasing is used, with no subword tokenization (BPE/WordPiece). This inflates the vocabulary with rare surface forms and limits generalization across morphological variants.
-\item \textbf{Training not converged:} All neural models are still improving at epoch 20 with no plateau reached. Longer training or a learning rate schedule would likely improve all models, though relative rankings are unlikely to change.
-\item \textbf{Single dataset:} All results are specific to AG News (short news snippets, 4-class topic classification). Findings about embedding choices and downstream transfer may not generalize to longer documents, more fine-grained tasks, or other domains.
-\item \textbf{Small scale:} Models are 2-layer, 100-dim ($\sim$4M parameters). At larger scales, the Transformer's advantage over recurrent models would likely widen due to better parallelism and deeper attention stacking.
-\item \textbf{Frozen-only embeddings in Part II:} The ablation compares frozen pretrained vs.\ trainable scratch, but does not test \emph{fine-tuned} pretrained embeddings (initialize from W2V/GloVe then allow gradient updates), which could combine the benefits of both approaches.
-\end{itemize}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{plots/part3_finetune_dynamics.png}
+\caption{Fine-tuning dynamics. Val accuracy climbs steadily with no sign of overfitting.}
+\label{fig:finetune}
+\end{figure}
 
 \end{document}

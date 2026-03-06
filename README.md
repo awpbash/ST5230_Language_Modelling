@@ -49,10 +49,13 @@ Domain-matched W2V wins for recurrent models; the Transformer prefers learning e
 | Method | Accuracy | Macro F1 |
 |---|---|---|
 | BoW + Logistic Regression | 0.902 | 0.902 |
-| RNN frozen + Linear | 0.843 | 0.842 |
-| LSTM frozen + MLP | 0.884 | 0.884 |
-| Transformer frozen + MLP | 0.906 | 0.906 |
-| **Transformer fine-tuned + Linear** | **0.931** | **0.930** |
+| RNN frozen + Linear | 0.840 | 0.840 |
+| RNN frozen + MLP | 0.857 | 0.857 |
+| LSTM frozen + Linear | 0.871 | 0.871 |
+| LSTM frozen + MLP | 0.883 | 0.883 |
+| TF frozen + Linear | 0.880 | 0.879 |
+| TF frozen + MLP | 0.906 | 0.906 |
+| **Transformer fine-tuned + Linear** | **0.931** | **0.931** |
 
 <p align="center">
   <img src="outputs/plots/part3_tsne.png" width="80%" alt="t-SNE of frozen LM features">
@@ -113,3 +116,7 @@ run_all.bat
 ```
 
 **Requirements:** Python 3.10+, PyTorch >= 2.0, CUDA recommended (~35 min/part on GPU).
+
+## Acknowledgements
+
+I declare that Claude was used for LaTeX/markdown formatting and syntax assistance. All model implementations, experiments, and analysis are original work.
